@@ -1,0 +1,516 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+#Installing libraries
+install.packages("tidyverse")
+install.packages("corrplot")
+install.packages("PerformanceAnalytics")
+install.packages("Hmisc")
+install.packages("caret")
+install.packages("factoextra")
+install.packages("DataExplorer")
+install.packages("jtools")
+install.packages("caTools")
+install.packages("randomForest")
+install.packages("e1071")
+install.packages("scales")
+install.packages("ggplot2")
+install.packages("Metrics")
+#Loading the packages
+library(tidyverse)
+library(PerformanceAnalytics)
+#rcorr function
+library(Hmisc)
+#To find correlation
+library(caret)
+#To plot correlation
+library(corrplot)
+#plot missing values
+library(DataExplorer)
+#Regression summary
+library(jtools)
+#To split data
+library(caTools)
+#Random forest algorithm
+library(randomForest)
+#SVM algorithm
+library(e1071)
+#To get label number
+library(scales)
+#To plot graphs
+library(ggplot2)
+#RMSE and MAE calculation
+library(Metrics)
+```
+
+```{r }
+
+#Reading dataset
+train_data <- read.csv("train.csv")
+
+#Summary of the whole dataset
+summary(train_data)
+
+#Creating a subset of the dataframe with 50000 observations
+newdata_train <- train_data[1:50000,]
+
+#Extracting the dataset with 50k records for tableau visualisation
+write.csv(newdata_train, "/Users/anusha/Desktop/new_train.csv", row.names=FALSE)
+
+#Summary of 50k observations
+summary(newdata_train)
+#Checking the datatype of each varibale
+str(newdata_train)
+
+#Data Visualisation
+
+#Converting categorical variables into factors
+newdata_train <-newdata_train %>% mutate(Gender = factor(Gender),
+                             Age = factor(Age),
+                             City_Category = factor(City_Category),
+                             Stay_In_Current_City_Years = factor(Stay_In_Current_City_Years),
+                             Product_ID = factor(Product_ID))
+
+#Initial data exploration
+#Graph for gender ditribution
+newdata_train %>%
+  group_by(Gender) %>%
+  summarise(Count = n(),Percentage=round(n()/nrow(.)*100,2)) %>%
+  arrange(desc(Count))
+values <- c(37812,12188)
+labels <- c("Male", "Female")
+colors <- c("steelblue","orange")
+piepercent<- round(100 * values / sum(values), 1)
+pie(values, labels = piepercent, main = "Gender pie chart",  col = colors)
+legend("topright", c("Male", "Female"),
+                    cex = 0.5, fill = colors)
+#In this dataset, 75.6% are male customers
+
+#Graph to plot percentage of customers in each age group
+newdata_train %>%
+  group_by(Age) %>%
+  summarise(Count = n(),Percentage=round(n()/nrow(.)*100,2)) %>%
+  arrange(desc(Count))
+#In this dataset, approximately 40% of the customers are aged between 26-35 and lowest is 3% who are aged between 0-17
+
+#Graph to plot percentage of customers in each occupation category
+newdata_train %>%
+  group_by(Occupation) %>%
+  summarise(Count = n(),Percentage=round(n()/nrow(.)*100,2)) %>%
+  arrange(desc(Count))
+#In this dataset, 13.5% of customers fall under Occupation category 4
+
+#Graph to plot percentage of customers in each City
+newdata_train %>%
+  group_by(City_Category) %>%
+  summarise(Count = n(),Percentage=round(n()/nrow(.)*100,2)) %>%
+  arrange(desc(Count))
+#In this dataset, 41% of the customers are from City B
+
+#Graph to plot percentage of customers staying in the city for different years
+newdata_train %>%
+  group_by(Stay_In_Current_City_Years) %>%
+  summarise(Count = n(),Percentage=round(n()/nrow(.)*100,2)) %>%
+  arrange(desc(Count))
+#In this dataset, 35% of the customers have lived for 1 year in the city
+
+#Graph of Purchase vs City_Category
+options(scipen = 999, repr.plot.width = 14, repr.plot.height = 8)
+ggplot(data=newdata_train, aes(x=City_Category, y=Purchase, label = Purchase)) + geom_bar(stat="identity",fill="steelblue") +
+theme_minimal()+
+scale_y_continuous(labels = scales::label_number_si()) +
+ggtitle('City Category vs Purchase') +
+theme(plot.title = element_text(hjust = 0.5)) +
+xlab("City_Category") + ylab("Purchase")
+
+#Graph of Purchase vs Gender
+ggplot(data=newdata_train, aes(x=Gender, y=Purchase)) + geom_bar(stat="identity",fill="steelblue")  +
+theme_minimal()+
+scale_y_continuous(labels = scales::label_number_si()) +
+ggtitle('Gender vs Purchase') +
+theme(plot.title = element_text(hjust = 0.5)) +
+xlab("Gender") + ylab("Purchase")
+
+
+#Graph of Purchase vs Age
+ggplot(data=newdata_train, aes(x=Age, y=Purchase)) + geom_bar(stat="identity",fill="steelblue") +
+theme_minimal()+
+scale_y_continuous(labels = scales::label_number_si()) +
+ggtitle('Age vs Purchase') +
+theme(plot.title = element_text(hjust = 0.5)) +
+xlab("Age") + ylab("Purchase")
+
+#Graph of Purchase vs Occupation
+ggplot(data=newdata_train, aes(x=Occupation, y=Purchase)) + geom_bar(stat="identity",fill="steelblue") +
+theme_minimal()+
+scale_y_continuous(labels = scales::label_number_si()) +
+ggtitle('Occupation vs Purchase') +
+theme(plot.title = element_text(hjust = 0.5)) +
+xlab("Occupation") + ylab("Purchase")
+
+#Graph of Purchase vs Marital_Status
+ggplot(data=newdata_train, aes(x=Marital_Status, y=Purchase)) + geom_bar(stat="identity",fill="steelblue") +
+geom_text(aes(label= Purchase), vjust=-0.3, color="white", size=3 , position = position_dodge(0.9)) +
+theme_minimal()+
+scale_y_continuous(labels = scales::label_number_si()) +
+ggtitle('Marital_Status vs Purchase') +
+theme(plot.title = element_text(hjust = 0.5)) +
+xlab("Marital_Status") + ylab("Purchase")
+
+#Graph of Purchase vs Stay_In_Current_City_Years
+ggplot(data=newdata_train, aes(x=Stay_In_Current_City_Years, y=Purchase)) + geom_bar(stat="identity",fill="steelblue") +
+theme_minimal()+
+scale_y_continuous(labels = scales::label_number_si()) +
+ggtitle('Stay_In_Current_City_Years vs Purchase') +
+theme(plot.title = element_text(hjust = 0.5)) +
+xlab("Stay_In_Current_City_Years") + ylab("Purchase")
+
+#Graph of age vs product_category1
+ggplot(data=newdata_train, aes(x=Age, y=Product_Category_1)) + geom_bar(stat="identity",fill="steelblue") +
+theme_minimal()+
+scale_y_continuous(labels = scales::label_number_si()) +
+ggtitle('Age vs Product_Category_1') +
+theme(plot.title = element_text(hjust = 0.5)) +
+xlab("Age") + ylab("Product_Category_1")
+
+#Graph of age vs product_category_2
+ggplot(data=newdata_train, aes(x=Age, y=Product_Category_2)) + geom_bar(stat="identity",fill="steelblue") +
+theme_minimal()+
+scale_y_continuous(labels = scales::label_number_si()) +
+ggtitle('Age vs Product_Category_2') +
+theme(plot.title = element_text(hjust = 0.5)) +
+xlab("Age") + ylab("Product_Category_2")
+
+#Graph of age vs product_category_3
+ggplot(data=newdata_train, aes(x=Age, y=Product_Category_3)) + geom_bar(stat="identity",fill="steelblue") +
+theme_minimal()+
+scale_y_continuous(labels = scales::label_number_si()) +
+ggtitle('Age vs Product_Category_3') +
+theme(plot.title = element_text(hjust = 0.5)) +
+xlab("Age") + ylab("Product_Category_3")
+
+
+# create vectors to store the categories and mean purchases
+category <- c()
+mean_purchase <- c()
+
+# get the unique categories and sort them
+categories <- sort(unique(newdata_train$Product_Category_1))
+
+# loop through the categories and calculate the mean purchase for each category
+for (e in categories) {
+  mean_purchase <- c(mean_purchase, mean(newdata_train[newdata_train$Product_Category_1 == e, "Purchase"]))
+}
+#Plot the graph of mean purchase for each category
+ggplot(data.frame(category=categories, mean_purchase=mean_purchase)) +
+  geom_col(aes(x=category, y=mean_purchase),fill="steelblue") +
+  labs(title="Mean of the Purchases per Category", x="Product Category", y="Mean Purchase")
+
+#Graph of mean purchase group by Gender, City_Category and Marital_Status
+plotdata <- newdata_train %>%
+  group_by(Gender, City_Category, Marital_Status) %>%
+  summarize(n = n(),
+            mean = mean(Purchase), #mean of purchase
+            sd = sd(Purchase),
+            se = sd / sqrt(n))
+
+# create better labels for discipline
+plotdata$Marital_Status <- factor(plotdata$Marital_Status,
+                              labels = c("Married",
+                                         "Single"))
+# create plot
+ggplot(plotdata, 
+       aes(x = Gender, 
+           y = mean,
+           color = Gender)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = mean - se, 
+                    ymax = mean + se),
+                width = .1) +
+  scale_y_continuous(labels = scales::label_number_si()) +
+  facet_grid(. ~ City_Category + Marital_Status) +
+  theme_bw() +
+  theme(legend.position = "none",
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.y = element_blank()) +
+  labs(x="", 
+       y="", 
+       title="Purchase by gender, City_Category, and Marital_Status",
+       subtitle = "(Means and standard errors)") +
+  scale_color_brewer(palette="Set1")
+
+#######################################
+
+#Data Pre-processing 
+
+#Plot missing values
+plot_missing(newdata_train)
+#To find missing values in each variable
+sapply(newdata_train, function(x) sum(is.na(x)))
+#Product category 2 has around 31% of missing values
+#Product category 3 has around 70% of missing values and hence it is better to drop the variable
+
+#Replacing NA's with mean value of Product_Category_2
+mean_prod_2 <- mean(newdata_train$Product_Category_2, na.rm = TRUE)
+newdata_train$Product_Category_2[is.na(newdata_train$Product_Category_2)] <- mean_prod_2
+
+#Summary of the dataset after imputation of missing values
+summary(newdata_train)
+
+#To find outliers in Purchase variable
+purchase_outliers <- qplot(y = Purchase, ylab = "Purchase Outliers", data = newdata_train, geom = "boxplot", fill = I("gray")) + theme_minimal() + theme(axis.title.x = element_text(angle = 90))
+purchase_outliers
+
+#Feature Selection
+#Dropping unrelated features
+df <- subset(newdata_train, select = -c(User_ID, Product_ID, Product_Category_3))
+
+#Check variables in the dataframe
+glimpse(df)
+
+#Create a duplicate dataframe to make changes
+scaled_data <- df
+
+#Converting categorical variables into numeric
+scaled_data$Gender <- as.numeric(scaled_data$Gender)
+scaled_data$Age <- as.numeric(scaled_data$Age)
+scaled_data$City_Category <- as.numeric(scaled_data$City_Category)
+scaled_data$Stay_In_Current_City_Years <- as.numeric(scaled_data$Stay_In_Current_City_Years)
+glimpse(scaled_data)
+
+#Correlation matrix
+cor(scaled_data)
+
+#correlation plot
+res <- cor(scaled_data)
+corrplot(res, type = "upper",
+         tl.col = "black", tl.srt = 45)
+
+#Correlation plot using heatmap
+col<- colorRampPalette(c("blue", "white", "red"))(20)
+heatmap(x = res, col = col, symm = TRUE)
+
+#Data modelling
+
+#Set seed to replicate the results
+set.seed(123)
+#Split the data into training and test in the ratio 70:30
+split = sample.split(df, SplitRatio = 0.7)
+train_dataset1 = subset(df, split == TRUE)
+test_dataset1 = subset(df, split == FALSE)
+
+#Multiple Linear Regression
+#Model with all variables
+model1 <- lm(Purchase ~ Gender + Age + Occupation + City_Category + Stay_In_Current_City_Years + Marital_Status + Product_Category_1 + Product_Category_2, data = train_dataset1)
+#Summary of the model1
+summary(model1)
+
+#Model without Stay_In_Current_City_Years
+model2 <- lm(Purchase ~ Gender + Age + Occupation + City_Category + Marital_Status + Product_Category_1 + Product_Category_2, data = train_dataset1)
+#Summary of the model2
+summary(model2)
+
+#Model without Stay_In_Current_City_Years and Occupation
+model3 <- lm(Purchase ~ Gender + Age + City_Category + Marital_Status + Product_Category_1 + Product_Category_2, data = train_dataset1)
+#Summary of the model3
+summary(model3)
+
+#Model without Stay_In_Current_City_Years, Occupation and Marital_Status
+model4 <- lm(Purchase ~ Gender + Age + City_Category + Product_Category_1 + Product_Category_2, data = train_dataset1)
+#Summary of the model4
+summary(model4)
+
+#Model without Stay_In_Current_City_Years, Occupation, Marital_Status and Gender
+model5 <- lm(Purchase ~  Age + City_Category + Product_Category_1 + Product_Category_2, data = train_dataset1)
+#Summary of the model5
+summary(model5)
+
+#Confidence intervals for model4
+confint(model4)
+
+#Predict purchase values using model4
+y1 = predict(model4, train_dataset1)
+#Show the purchase values
+table(y1, train_data1$Purchase)
+#Predict purchase values using model4
+y_pred1 = predict(model4, test_dataset1)
+#Show the purchase values
+table(y_pred1, test_dataset1$Purchase)
+
+#RMSE values foe training and test data
+rmse(y1, train_dataset1$Purchase)
+rmse(y_pred1, test_dataset1$Purchase)
+
+#MAE values foe training and test data
+mae(y1, train_dataset1$Purchase)
+mae(y_pred1, test_dataset1$Purchase)
+
+#Model 3 evaluation
+#Predict purchase values using model3
+y2 = predict(model3, train_dataset1)
+#Show the purchase values
+table(y2, train_data1$Purchase)
+#Predict purchase values using model3
+y_pred2 = predict(model3, test_dataset1)
+#Show the purchase values
+table(y_pred2, test_dataset1$Purchase)
+
+#RMSE values foe training and test data
+rmse(y2, train_dataset1$Purchase)
+rmse(y_pred2, test_dataset1$Purchase)
+
+#MAE values foe training and test data
+mae(y2, train_dataset1$Purchase)
+mae(y_pred2, test_dataset1$Purchase)
+
+
+#-------------------------------------------------------------------
+#Random Forest Algorithm
+#Set set reproducibility
+set.seed(123)
+#Apply random forest algorithm with 100 trees
+rf1 <- randomForest(Purchase~.,data = train_dataset1, ntree = 100, mtry = 3)
+
+#Print the results of rf1
+print(rf1)
+#Print the attributes of rf1
+attributes(rf1)
+
+#Predict purchase values using rf1
+p11 <- predict(rf1, train_dataset1)
+#Show the purchase values
+cm_train1 <- table (p11, train_dataset1$Purchase)
+cm_train1
+
+#Predict purchase values using rf1
+p21 <- predict(rf1, test_dataset1)
+#Show the purchase values
+cm_test1 <- table(p21, test_dataset1$Purchase)
+cm_test1
+
+#Graph of rf1
+plot(rf1)
+
+# RMSE on training set
+rmse(p11, train_dataset1$Purchase)
+# RMSE on test set
+rmse(p21, test_dataset1$Purchase)
+# MAE on training set
+mae(p11, train_dataset1$Purchase)
+# MAE on test set
+mae(p21, test_dataset1$Purchase)
+
+#Apply random forest algorithm with 500 trees
+rf2 <- randomForest(Purchase~.,data = train_dataset1, ntreeTry = 500, mtry = 3)
+print(rf2)
+
+#Predict purchase values using rf2
+p12 <- predict(rf2, train_dataset1)
+#Show the purchase values
+cm_train2 <- table (p12, train_dataset1$Purchase)
+cm_train2
+
+#Predict purchase values using rf2
+p22 <- predict(rf2, test_dataset1)
+#Show the purchase values
+cm_test2 <- table(p22, test_dataset1$Purchase)
+cm_test2
+
+#Graph of rf2
+plot(rf2)
+
+# RMSE on training set
+rmse(p12, train_dataset1$Purchase)
+# RMSE on test set
+rmse(p22, test_dataset1$Purchase)
+# MAE on training set
+mae(p12, train_dataset1$Purchase)
+# MAE on test set
+mae(p22, test_dataset1$Purchase)
+
+#Apply random forest algorithm with 1000 trees
+rf3 <- randomForest(Purchase~.,data = train_dataset1, ntree = 1000, mtry = 3)
+print(rf3)
+
+#Predict purchase values using rf3
+p13 <- predict(rf3, train_dataset1)
+#Show the purchase values
+cm_train3 <- table (p13, train_dataset1$Purchase)
+cm_train3
+
+#Predict purchase values using rf3
+p23 <- predict(rf3, test_dataset1)
+#Show the purchase values
+cm_test3 <- table(p23, test_dataset1$Purchase)
+cm_test3
+
+plot(rf3)
+
+# RMSE on training set
+rmse(p13, train_dataset1$Purchase)
+# RMSE on test set
+rmse(p23, test_dataset1$Purchase)
+# MAE on training set
+mae(p13, train_dataset1$Purchase)
+# MAE on test set
+mae(p23, test_dataset1$Purchase)
+#------------------------------------------------------------------------
+
+#Support Vector Machine Algorithm
+
+#Radial kernel
+svm_rbf1 <- svm(formula = Purchase~.,
+                data = train_dataset1,
+                type = 'eps-regression',
+                kernel = 'radial')
+
+#Summary of svm_rbf1
+summary(svm_rbf1)
+
+#Predict purchase values using svm_rbf1
+pred11 = predict (svm_rbf1, train_dataset1)
+pred11
+
+#Predict purchase values using svm_rbf1
+pred12 = predict (svm_rbf1, test_dataset1)
+pred12
+
+# RMSE on training set
+rmse(pred11, train_dataset1$Purchase)
+# RMSE on test set
+rmse(pred12, test_dataset1$Purchase)
+# MAE on training set
+mae(pred11, train_dataset1$Purchase)
+# MAE on test set
+mae(pred12, test_dataset1$Purchase)
+
+#Polynomial kernel
+svm_rbf2 <- svm(formula = Purchase~.,
+                data = train_dataset1,
+                type = 'eps-regression',
+                kernel = 'polynomial')
+
+#Summary of svm_rbf1
+summary(svm_rbf2)
+
+#Predict purchase values using svm_rbf2
+pred21 = predict (svm_rbf2, train_dataset1)
+pred21
+
+#Predict purchase values using svm_rbf2
+pred22 = predict (svm_rbf2, test_dataset1)
+pred22
+
+# RMSE on training set
+rmse(pred21, train_dataset1$Purchase)
+# RMSE on test set
+rmse(pred22, test_dataset1$Purchase)
+# MAE on training set
+mae(pred21, train_dataset1$Purchase)
+# MAE on test set
+mae(pred22, test_dataset1$Purchase)
+```
+
